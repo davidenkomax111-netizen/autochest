@@ -1,0 +1,89 @@
+-- GUI с кнопкой автолута сундуков
+local Players = game:GetService("Players")
+local player = Players.LocalPlayer
+local character = player.Character or player.CharacterAdded:Wait()
+local hrp = character:WaitForChild("HumanoidRootPart")
+local ProximityPromptService = game:GetService("ProximityPromptService")
+
+-- ключевые слова для поиска
+local chestKeywords = {"chest", "treasure", "crate", "box", "loot"}
+
+-- проверка, подходит ли объект
+local function isChest(obj)
+    local lowerName = obj.Name:lower()
+    for _, word in ipairs(chestKeywords) do
+        if lowerName:find(word) then
+            return true
+        end
+    end
+    return false
+end
+
+-- сбор сундуков
+local function getAllChests()
+    local chestList = {}
+    for _, obj in ipairs(workspace:GetDescendants()) do
+        if (obj:IsA("Model") or obj:IsA("Part") or obj:IsA("MeshPart") or obj:IsA("UnionOperation")) and isChest(obj) then
+            table.insert(chestList, obj)
+        end
+    end
+    return chestList
+end
+
+-- функция телепорта
+local function tpToChest(chest)
+    if chest and chest.Parent then
+        local root = chest:FindFirstChild("PrimaryPart") or chest:FindFirstChildWhichIsA("BasePart")
+        if root then
+            hrp.CFrame = root.CFrame + Vector3.new(0, 5, 0)
+            print("Телепорт к:", chest.Name)
+        else
+            print("Нет точки для телепорта у:", chest.Name)
+        end
+    end
+end
+
+-- GUI
+local screenGui = Instance.new("ScreenGui", player:WaitForChild("PlayerGui"))
+local button = Instance.new("TextButton", screenGui)
+button.Size = UDim2.new(0, 160, 0, 50)
+button.Position = UDim2.new(0.5, -80, 0.8, 0)
+button.BackgroundColor3 = Color3.fromRGB(50, 150, 250)
+button.TextColor3 = Color3.new(1, 1, 1)
+button.Text = "TP Next Chest"
+button.Font = Enum.Font.SourceSansBold
+button.TextSize = 22
+button.Active = true
+button.Draggable = true
+
+-- переменные для телепорта
+local chestIndex = 1
+
+-- обработчик нажатия
+button.MouseButton1Click:Connect(function()
+    local chests = getAllChests()
+    if #chests == 0 then
+        print("Сундуки не найдены, обновляем через 2 сек...")
+        button.Text = "Refreshing..."
+        wait(2)
+        button.Text = "TP Next Chest"
+        chestIndex = 1
+        return
+    end
+
+    if chestIndex > #chests then
+        chestIndex = 1 -- начинаем сначала
+    end
+
+    local chest = chests[chestIndex]
+    tpToChest(chest)
+    chestIndex = chestIndex + 1
+end)
+
+-- автоматический фаер всех ProximityPrompt при удержании кнопки
+ProximityPromptService.PromptButtonHoldBegan:Connect(function(prompt)
+    if prompt and prompt.Parent then
+        fireproximityprompt(prompt)
+        print("Активирован ProximityPrompt:", prompt.Name)
+    end
+end)
